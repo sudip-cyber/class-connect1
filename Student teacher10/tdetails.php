@@ -46,6 +46,46 @@ $studentsList = getAllStudents();
             margin: 0;
             padding: 40px 20px;
             display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #e0e5ec;
+            border-radius: 20px;
+            box-shadow: 8px 8px 15px #a3b1c6, -8px -8px 15px #ffffff;
+            padding: 30px;
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-photo {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid #d1d9e6;
+            background: #fff;
+        }
+
+        .profile-info p {
+            margin: 8px 0;
+            font-size: 15px;
+            color: #333;
+        }
+
+        .buttons {
+            display: flex;
             justify-content: center;
             gap: 15px;
             flex-wrap: wrap;
@@ -146,113 +186,112 @@ $studentsList = getAllStudents();
         <button class="btn-edit" onclick="window.location.href='tprofile.php'">Edit</button>
         <button class="btn-students" onclick="window.location.href='sstore.php'">Students</button>
         <button class="btn-teachers" onclick="try{localStorage.setItem('fromTStoreSource','tdetails')}catch(e){};window.location.href='tstore1.php'">Other Teachers</button>
-        <button class="btn-msg" onclick="openServerChatModalTeacher()">Messaging</button>
+        <button class="btn-msg" id="openGroupChatBtnT">Message</button>
         <button class="btn-att" onclick="window.location.href='attendance.php'">Attendance</button>
 
         <!-- secondary row -->
         <button class="btn-profile" onclick="window.location.href='tdetails.php'">Your Profile</button>
         <button class="logout-btn" onclick="window.location.href='logout.php'">Logout</button>
     </div>
-    <script>
-    // students list for chat
-    var STUDENTS = <?php echo json_encode($studentsList, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT); ?> || [];
-
-    (function(){
-        // WhatsApp-like direct chat (teacher page) - replaced old dynamic modal with improved behaviour
-        var poller = null; var overlay = null;
-        function escapeHtml(str){ return String(str||'').replace(/[&<>'\"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":"&#39;"}[m];}); }
-
-        function renderMsgs(container, msgs, meType, meId){ container.innerHTML=''; msgs.forEach(function(m){ var mine = (m.from_type===meType && String(m.from_id)===String(meId)); var wrapper=document.createElement('div'); wrapper.style.display='flex'; wrapper.style.justifyContent = mine ? 'flex-end' : 'flex-start'; wrapper.style.marginBottom='8px'; var bubble=document.createElement('div'); bubble.style.maxWidth='75%'; bubble.style.padding='10px'; bubble.style.borderRadius='10px'; bubble.style.background = mine ? '#dcf8c6' : '#fff'; bubble.innerHTML = '<div style="font-size:12px;color:#666;margin-bottom:6px">'+escapeHtml(m.from_type+' · '+(m.from_id||''))+' · '+escapeHtml(m.created_at||'')+'</div><div style="white-space:pre-wrap">'+escapeHtml(m.message||'')+'</div>'; wrapper.appendChild(bubble); container.appendChild(wrapper); }); container.scrollTop = container.scrollHeight; }
-
-        window.openChatModal = function(partnerType){
-            try{
-                if(overlay){ overlay.remove(); overlay=null; }
-                overlay = document.createElement('div'); overlay.style.position='fixed'; overlay.style.left=0; overlay.style.top=0; overlay.style.right=0; overlay.style.bottom=0; overlay.style.background='rgba(0,0,0,0.45)'; overlay.style.zIndex=14000;
-                var modal = document.createElement('div'); modal.style.width='680px'; modal.style.maxWidth='94%'; modal.style.borderRadius='10px'; modal.style.background='#fff'; modal.style.padding='12px'; modal.style.boxShadow='0 20px 60px rgba(0,0,0,0.25)'; modal.style.maxHeight='80vh'; modal.style.overflow='hidden';
-                var header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center'; var h = document.createElement('h4'); h.innerText='Chat with Student'; h.style.margin='0'; header.appendChild(h); var cb = document.createElement('button'); cb.innerText='✕'; cb.style.border='none'; cb.style.background='transparent'; cb.style.cursor='pointer'; cb.onclick = closeModal; header.appendChild(cb); modal.appendChild(header);
-                var sel = document.createElement('select'); sel.style.marginTop='8px'; sel.style.padding='8px'; sel.style.borderRadius='6px'; var ph = document.createElement('option'); ph.value=''; ph.text='Select student...'; sel.appendChild(ph);
-                STUDENTS.forEach(function(s){ var opt=document.createElement('option'); opt.value = s.roll_number || s.roll_no || s.rollNumber || s.id; opt.text = s.name || opt.value; sel.appendChild(opt); }); modal.appendChild(sel);
-                var msgArea = document.createElement('div'); msgArea.style.marginTop='8px'; msgArea.style.height='360px'; msgArea.style.overflow='auto'; msgArea.style.padding='10px'; msgArea.style.border='1px solid #eee'; msgArea.style.borderRadius='8px'; modal.appendChild(msgArea);
-                var inputRow = document.createElement('div'); inputRow.style.display='flex'; inputRow.style.gap='8px'; inputRow.style.marginTop='8px'; var input = document.createElement('input'); input.type='text'; input.placeholder='Type a message'; input.style.flex='1'; input.style.padding='10px'; input.style.borderRadius='8px'; var send = document.createElement('button'); send.innerText='Send'; send.style.padding='10px 14px'; send.style.borderRadius='8px'; send.style.background='#0b5fff'; send.style.color='#fff'; send.style.border='none'; send.style.cursor='pointer'; inputRow.appendChild(input); inputRow.appendChild(send); modal.appendChild(inputRow);
-                overlay.appendChild(modal); document.body.appendChild(overlay);
-
-                function fetchMsgs(){ var otherId = sel.value; if(!otherId) return; fetch('api/get_messages.php?other_type=student&other_id='+encodeURIComponent(otherId)).then(r=>r.json()).then(function(j){ if(j && j.success){ renderMsgs(msgArea, j.messages||[], '<?php echo addslashes($_SESSION['user_type'] ?? ''); ?>','<?php echo addslashes($_SESSION['user_id'] ?? ''); ?>'); } }); }
-                send.onclick = function(){ var txt = input.value.trim(); var other = sel.value; if(!other){ alert('Select a student'); return; } if(!txt) return; send.disabled=true; // optimistic echo
-                    var tmp = { message: txt, from_type: '<?php echo addslashes($_SESSION['user_type'] ?? ''); ?>', from_id: '<?php echo addslashes($_SESSION['user_id'] ?? ''); ?>', message_id: 'tmp_'+Date.now(), created_at: (new Date()).toISOString() };
-                    renderMsgs(msgArea, (msgArea._cached||[]).concat([tmp]), '<?php echo addslashes($_SESSION['user_type'] ?? ''); ?>','<?php echo addslashes($_SESSION['user_id'] ?? ''); ?>');
-                    fetch('api/send_message.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to_type: 'student', to_id: other, message: txt }) }).then(r=>r.json()).then(function(j){ send.disabled=false; if(j && j.success){ input.value=''; fetchMsgs(); } else { alert('Send failed: '+(j && j.message? j.message : '')); } }).catch(function(){ send.disabled=false; alert('Network error'); }); };
-                sel.addEventListener('change', function(){ fetchMsgs(); });
-                if(poller) clearInterval(poller); poller = setInterval(fetchMsgs,2500); setTimeout(fetchMsgs,300);
-                function closeModal(){ try{ if(poller) clearInterval(poller); poller=null; if(overlay){ overlay.remove(); overlay=null; } }catch(e){} }
-            }catch(e){ console.warn(e); }
-        };
-    })();
-    </script>
-
-    <!-- Server-backed Chat Modal for Teacher -->
-    <div id="serverChatModalT" class="modal-overlay-chat" style="display:none;">
+    <!-- Group Chat Modal for teacher -->
+    <div id="groupChatModalT" class="modal-overlay-chat" style="display:none;">
         <div class="modal-chat" role="dialog" aria-modal="true">
             <div class="modal-header">
-                <div id="serverChatTitleT" style="font-weight:700">Group Chat</div>
+                <div id="groupChatTitleT" style="font-weight:700">All-staff Group Chat</div>
                 <div style="display:flex;gap:8px;align-items:center">
-                    <button class="close-btn" onclick="closeServerChatModalTeacher()">✕</button>
+                    <button class="close-btn" id="closeGroupChatBtnT">✕</button>
                 </div>
             </div>
             <div style="margin-top:8px;">
-                <select id="studentSelectServerT" style="padding:8px;border-radius:6px;margin-bottom:8px;display:block;width:100%">
-                    <option value="">-- Select student --</option>
-                </select>
-                <label style="display:block;margin-bottom:6px"><input id="broadcastAllTServer" type="checkbox" /> Send to all students</label>
-                <label style="display:block;margin-bottom:8px"><input id="broadcastAllBothTServer" type="checkbox" /> Send to all teachers & students</label>
-                <div id="messagesBoxServerT" style="background:#fff;border-radius:10px;padding:12px;height:320px;overflow:auto;border:1px solid #d0e3fa"></div>
+                <div id="groupMessagesBoxT" style="background:#fff;border-radius:10px;padding:12px;height:360px;overflow:auto;border:1px solid #d0e3fa"></div>
                 <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-                    <input id="chatInputServerT" type="text" placeholder="Type a message" style="flex:1;padding:8px;border-radius:8px;border:1px solid #d0e3f0" />
-                    <input id="fileInputServerT" type="file" />
-                    <button class="save-btn" id="sendServerBtnT">Send</button>
+                    <input id="groupChatInputT" type="text" placeholder="Type a message to everyone" style="flex:1;padding:8px;border-radius:8px;border:1px solid #d0e3f0" />
+                    <input id="groupFileInputT" type="file" />
+                    <button class="save-btn" id="groupSendBtnT">Send</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Server chat for teacher page
-        var STUDENTS_SERVER = <?php echo json_encode($studentsList, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT); ?> || [];
-        (function(){
-            var pollerT = null; var modalT = document.getElementById('serverChatModalT');
-            var messagesBox = null; var studentSelect = null; var sendBtn = null; var broadcastAll = null; var broadcastBoth = null;
-            function escapeHtml(s){ return String(s||'').replace(/[&<>'"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];}); }
+    // Group chat for teachers (all participants)
+    (function(){
+        const openBtn = document.getElementById('openGroupChatBtnT');
+        const modal = document.getElementById('groupChatModalT');
+        const closeBtn = document.getElementById('closeGroupChatBtnT');
+        const messagesBox = document.getElementById('groupMessagesBoxT');
+        const inputEl = document.getElementById('groupChatInputT');
+        const fileEl = document.getElementById('groupFileInputT');
+        const sendBtn = document.getElementById('groupSendBtnT');
+        const POLL_MS = 2000;
+        let poller = null;
 
-            window.openServerChatModalTeacher = function(){
-                try{
-                    if(!modalT) modalT = document.getElementById('serverChatModalT');
-                    modalT.style.display='flex'; modalT.classList.add('open');
-                    messagesBox = document.getElementById('messagesBoxServerT'); studentSelect = document.getElementById('studentSelectServerT'); sendBtn = document.getElementById('sendServerBtnT'); broadcastAll = document.getElementById('broadcastAllTServer'); broadcastBoth = document.getElementById('broadcastAllBothTServer');
-                    studentSelect.innerHTML = '<option value="">-- Select student --</option>';
-                    STUDENTS_SERVER.forEach(function(s){ var opt=document.createElement('option'); opt.value = s.roll_number || s.roll_no || s.rollNumber || s.id; opt.text = s.name || opt.value; studentSelect.appendChild(opt); });
+        const meType = <?php echo json_encode($_SESSION['user_type'] ?? ''); ?>;
+        const meId = <?php echo json_encode($_SESSION['user_id'] ?? ''); ?>;
 
-                    function fetchMsgs(){
-                        if(broadcastAll.checked || broadcastBoth.checked){
-                            fetch('api/get_group_messages.php').then(r=>r.json()).then(function(j){ if(j && j.success){ renderMsgs(j.messages||[]); } });
-                        } else { var other = studentSelect.value; if(!other) return; fetch('api/get_messages.php?other_type=student&other_id='+encodeURIComponent(other)).then(r=>r.json()).then(function(j){ if(j && j.success){ renderMsgs(j.messages||[]); } }); }
-                    }
+        function fmtTime(ts){ try{ return new Date(ts).toLocaleString(); }catch(e){ return ts||''; } }
+        function escapeHtml(s){ return String(s||'').replace(/[&<>'"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];}); }
 
-                    function renderMsgs(msgs){ if(!messagesBox) return; messagesBox.innerHTML=''; msgs.forEach(function(m){ var mine = (m.from_type=== '<?php echo addslashes($_SESSION['user_type'] ?? ''); ?>' && String(m.from_id) === String('<?php echo addslashes($_SESSION['user_id'] ?? ''); ?>')); var div = document.createElement('div'); div.style.marginBottom='10px'; div.dataset.msgId = m.id || m.message_id || ''; var who = (mine? 'You' : (m.from_type+' '+(m.from_id||''))); var time = m.created_at || ''; var inner = '<div style="font-size:12px;color:#666;margin-bottom:4px">'+escapeHtml(who)+' · '+escapeHtml(time)+'</div>'; inner += '<div style="background:'+(mine?'#e6f7ff':'#f1f5f9')+';padding:8px;border-radius:8px;max-width:78%;">'+escapeHtml(m.message||m.content||'')+'</div>'; div.innerHTML = inner; div.onclick = function(e){ e.stopPropagation(); var id = div.dataset.msgId; if(!id) return; var choose = confirm('Delete message? OK=Delete for me, Cancel=Delete for everyone (if sender)'); if(choose){ deleteServerMessageT(id,'me'); } else { if(mine) deleteServerMessageT(id,'everyone'); else alert('Only sender can delete for everyone'); } }; messagesBox.appendChild(div); }); messagesBox.scrollTop = messagesBox.scrollHeight; }
+        function renderMessages(arr){ messagesBox.innerHTML=''; arr.forEach(m => {
+            const mine = String(m.from_type) === String(meType) && String(m.from_id) === String(meId);
+            const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent = mine ? 'flex-end' : 'flex-start'; row.style.marginBottom='10px';
+            const bubble = document.createElement('div'); bubble.style.maxWidth='78%'; bubble.style.padding='10px'; bubble.style.borderRadius='12px'; bubble.style.background = mine ? '#e6f7ff' : '#fff'; bubble.style.boxShadow='0 1px 0 rgba(0,0,0,0.04)';
+            const meta = document.createElement('div'); meta.style.fontSize='12px'; meta.style.color='#666'; meta.style.marginBottom='6px'; meta.textContent = (m.from_type||'') + ' · ' + (m.from_id||'') + ' · ' + fmtTime(m.created_at || m.ts || '');
+            const text = document.createElement('div'); text.style.whiteSpace='pre-wrap'; text.textContent = m.message || m.content || '';
+            bubble.appendChild(meta);
+            if(text.textContent) bubble.appendChild(text);
+            if(m.attachment){ const a = document.createElement('div'); a.style.marginTop='6px'; const link = document.createElement('a'); link.href = m.attachment; link.target='_blank'; link.textContent = 'Attachment'; a.appendChild(link); bubble.appendChild(a); }
+            row.appendChild(bubble); messagesBox.appendChild(row);
+        }); messagesBox.scrollTop = messagesBox.scrollHeight; }
 
-                    if(sendBtn) sendBtn.onclick = function(){ var txt = document.getElementById('chatInputServerT').value.trim(); if(!txt) return; sendBtn.disabled=true; var payload={ message: txt };
-                        if(broadcastBoth.checked){ payload.to_type='group'; payload.to_id='all'; }
-                        else if(broadcastAll.checked){ payload.to_type='group'; payload.to_id='teachers'; }
-                        else { payload.to_type='student'; payload.to_id = studentSelect.value; if(!payload.to_id){ alert('Select a student or choose a broadcast option'); sendBtn.disabled=false; return; } }
-                        fetch('api/send_message.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json()).then(function(j){ sendBtn.disabled=false; if(j && j.success){ document.getElementById('chatInputServerT').value=''; fetchMsgs(); } else { alert('Send failed: '+(j && j.message? j.message : '')); } }).catch(function(){ sendBtn.disabled=false; alert('Network error'); }); };
+        async function fetchMessages(){
+            try{
+                const res = await fetch('api/get_group_messages.php');
+                const text = await res.text();
+                let j = null;
+                try{ j = JSON.parse(text); } catch(err){ console.warn('get_group_messages non-json response', text); return; }
+                if(j && j.success && Array.isArray(j.messages)) renderMessages(j.messages);
+                else if (j && !j.success) console.warn('get_group_messages error', j.message || j.detail || j);
+            }catch(e){ console.warn('group fetch error', e); }
+        }
 
-                    if(pollerT) clearInterval(pollerT); pollerT = setInterval(fetchMsgs,2500); setTimeout(fetchMsgs,200);
-                }catch(e){ console.warn('openServerChatModalTeacher', e); }
-            };
+        function startPolling(){ if(poller) clearInterval(poller); fetchMessages(); poller = setInterval(fetchMessages, POLL_MS); }
+        function stopPolling(){ if(poller) clearInterval(poller); poller = null; }
 
-            window.closeServerChatModalTeacher = function(){ try{ if(pollerT) clearInterval(pollerT); pollerT=null; if(modalT){ modalT.classList.remove('open'); modalT.style.display='none'; } }catch(e){} };
+        async function uploadFile(file){
+            try{
+                const fd = new FormData(); fd.append('file', file);
+                const r = await fetch('api/upload_attachment.php', { method: 'POST', body: fd });
+                const text = await r.text();
+                let j = null;
+                try{ j = JSON.parse(text); } catch(err){ console.warn('upload_attachment non-json response', text); throw new Error('Upload failed: ' + text); }
+                if(j && j.success) return j.url;
+                throw new Error(j && j.message ? j.message : 'Upload failed');
+            }catch(e){ console.warn('upload error', e); alert('File upload failed: ' + (e.message||'')); return null; }
+        }
 
-            function deleteServerMessageT(messageId, action){ fetch('api/delete_message.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message_id: messageId, action: action }) }).then(r=>r.json()).then(function(j){ if(j && j.success){ try{ if(messagesBox) messagesBox.querySelector('[data-msg-id="'+messageId+'"]')?.remove(); }catch(e){} } else { alert('Delete failed'); } }); }
+        async function sendMessage(){
+            const txt = (inputEl.value||'').trim(); const file = fileEl.files && fileEl.files[0];
+            if(!txt && !file){ alert('Enter a message or attach a file.'); return; }
+            sendBtn.disabled = true; let attachmentUrl = null;
+            if(file) attachmentUrl = await uploadFile(file);
+            const payload = { to_type: 'group', to_id: 'all', message: txt };
+            if(attachmentUrl) payload.attachment = attachmentUrl;
+            try{
+                const res = await fetch('api/send_message.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                const text = await res.text();
+                let j = null;
+                try{ j = JSON.parse(text); } catch(err){ alert('Server error: ' + text); console.warn('send_message non-json response', text); }
+                if(j && !(j && j.success)) alert('Send failed: ' + (j && j.message ? j.message : 'Unknown'));
+            }catch(e){ alert('Network error'); console.warn(e); }
+            inputEl.value=''; fileEl.value=''; sendBtn.disabled=false; fetchMessages();
+        }
 
-        })();
+        openBtn && openBtn.addEventListener('click', function(){ modal.style.display='flex'; modal.classList.add('open'); startPolling(); setTimeout(()=>inputEl.focus(),120); });
+        closeBtn && closeBtn.addEventListener('click', function(){ modal.classList.remove('open'); modal.style.display='none'; stopPolling(); });
+        sendBtn && sendBtn.addEventListener('click', sendMessage);
+        inputEl && inputEl.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sendMessage(); } });
+    })();
     </script>
 </body>
 </html>

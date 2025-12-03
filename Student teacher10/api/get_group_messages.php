@@ -1,44 +1,31 @@
 <?php
+header('Content-Type: application/json');
 require_once __DIR__ . '/../database/config.php';
-require_once __DIR__ . '/../database/db_operations.php';
-session_start();
-header('Content-Type: application/json; charset=utf-8');
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type'])) {
-    echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+try {
+    // connect to messaging DB
+    $db = getMessageDB();
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Messaging DB not available', 'error' => $e->getMessage()]);
     exit;
 }
-$myType = $_SESSION['user_type'];
-$myId = $_SESSION['user_id'];
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 200;
 
-// Use DB helper to fetch group messages while excluding deletions for this viewer
-try{
-    $db = getDB();
-    $sql = 'SELECT m.*, CASE WHEN m.from_type = ? AND m.from_id = ? THEN 1 ELSE 0 END as self_flag
-            FROM messages m
-            WHERE m.to_type = "group" AND m.to_id IN ("all","teachers")
+// Fetch recent group messages (to_type='group' OR to_id='all')
+try {
+    $sql = "SELECT m.* FROM messages m
+            WHERE (m.to_type = 'group' OR m.to_id = 'all' OR m.to_id = 'teachers' OR m.to_id = 'students')
             AND NOT EXISTS (SELECT 1 FROM message_deletions md WHERE md.message_id = m.message_id AND md.deleted_for_everyone = 1)
-            AND NOT EXISTS (SELECT 1 FROM message_deletions md2 WHERE md2.message_id = m.message_id AND md2.deleted_by_type = ? AND md2.deleted_by_id = ?)
             ORDER BY m.created_at ASC
-            LIMIT ?';
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$myType, $myId, $myType, $myId, (int)$limit]);
-    $rows = $stmt->fetchAll();
-    // If no canonical group rows exist (migration not run), fall back to per-recipient messages
-    if (empty($rows)) {
-        $fallbackSql = 'SELECT m.*, CASE WHEN m.from_type = ? AND m.from_id = ? THEN 1 ELSE 0 END as self_flag
-            FROM messages m
-            WHERE (m.to_type = ? AND m.to_id = ?) OR (m.from_type = ? AND m.from_id = ?)
-            AND NOT EXISTS (SELECT 1 FROM message_deletions md WHERE md.message_id = m.message_id AND md.deleted_for_everyone = 1)
-            AND NOT EXISTS (SELECT 1 FROM message_deletions md2 WHERE md2.message_id = m.message_id AND md2.deleted_by_type = ? AND md2.deleted_by_id = ?)
-            ORDER BY m.created_at ASC
-            LIMIT ?';
-        $fstmt = $db->prepare($fallbackSql);
-        $fstmt->execute([$myType, $myId, $myType, $myId, $myType, $myId, $myType, $myId, (int)$limit]);
-        $rows = $fstmt->fetchAll();
-    }
+            LIMIT 500";
+    $stmt = $db->query($sql);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'messages' => $rows]);
-}catch(Exception $e){
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    exit;
+} catch (Exception $e) {
+    // Log error for diagnostics
+    @file_put_contents(__DIR__ . '/../logs/api_errors.log', '[' . date('c') . '] get_group_messages error: ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Failed to fetch messages', 'error' => $e->getMessage()]);
+    exit;
 }

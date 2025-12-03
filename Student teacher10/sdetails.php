@@ -128,7 +128,7 @@ $teachersList = function_exists('getAllTeachers') ? getAllTeachers() : [];
         <button class="act-blue" onclick="window.location.href='viewo.php'">View Other Profiles</button>
         <button class="act-blue" onclick="window.location.href='tstore1.php'">Teachers</button>
         <button id="classRoutineBtn" class="act-gray">Routine</button>
-        <button class="act-blue" onclick="openServerChatModal()">Messaging</button>
+        <button class="act-blue" id="openGroupChatBtn">Message</button>
         <button class="act-blue" onclick="window.location.href='sdetails.php'">My Profile</button>
         <button class="act-green" onclick="window.location.href='sprofile.php'">Edit Profile</button>
         <button class="act-red" onclick="window.location.href='?logout=1'">Logout</button>
@@ -357,119 +357,115 @@ $teachersList = function_exists('getAllTeachers') ? getAllTeachers() : [];
     })();
 </script>
 
-<!-- Server-backed Chat Modal -->
-<div id="serverChatModal" class="modal-overlay-chat" style="display:none;">
+<!-- Group Chat Modal -->
+<div id="groupChatModal" class="modal-overlay-chat" style="display:none;">
     <div class="modal-chat" role="dialog" aria-modal="true">
         <div class="modal-header">
-            <div id="serverChatTitle" style="font-weight:700">Chat</div>
+            <div id="groupChatTitle" style="font-weight:700">All-staff Group Chat</div>
             <div style="display:flex;gap:8px;align-items:center">
-                <button class="close-btn" onclick="closeServerChatModal()">✕</button>
+                <button class="close-btn" id="closeGroupChatBtn">✕</button>
             </div>
         </div>
         <div style="margin-top:8px;">
-            <select id="teacherSelectServer" style="padding:8px;border-radius:6px;margin-bottom:8px;display:block;width:100%">
-                <option value="">-- Select teacher or choose Group --</option>
-            </select>
-            <label style="display:block;margin-bottom:8px"><input id="serverGroupMode" type="checkbox" /> Show group chat to teachers</label>
-            <div id="messagesBoxServer" style="background:#fff;border-radius:10px;padding:12px;height:320px;overflow:auto;border:1px solid #e6eefb"></div>
+            <div id="groupMessagesBox" style="background:#fff;border-radius:10px;padding:12px;height:360px;overflow:auto;border:1px solid #e6eefb"></div>
             <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-                <input id="chatInputServer" type="text" placeholder="Type a message" style="flex:1;padding:10px;border-radius:8px;border:1px solid #d0e3f0" />
-                <input id="fileInputServer" type="file" />
-                <button class="save-btn" id="sendServerBtn">Send</button>
+                <input id="groupChatInput" type="text" placeholder="Type a message to everyone" style="flex:1;padding:10px;border-radius:8px;border:1px solid #d0e3f0" />
+                <input id="groupFileInput" type="file" />
+                <button class="save-btn" id="groupSendBtn">Send</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// WhatsApp-like chat implementation (student page)
-var TEACHERS = <?php echo json_encode($teachersList, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT); ?> || [];
+// Group chat for students (all participants)
 (function(){
-    const modal = document.getElementById('serverChatModal');
-    const messagesBox = () => document.getElementById('messagesBoxServer');
-    const teacherSel = () => document.getElementById('teacherSelectServer');
-    const groupCb = () => document.getElementById('serverGroupMode');
-    const inputEl = () => document.getElementById('chatInputServer');
-    const sendBtn = () => document.getElementById('sendServerBtn');
-
+    const modal = document.getElementById('groupChatModal');
+    const openBtn = document.getElementById('openGroupChatBtn');
+    const closeBtn = document.getElementById('closeGroupChatBtn');
+    const messagesBox = document.getElementById('groupMessagesBox');
+    const inputEl = document.getElementById('groupChatInput');
+    const fileEl = document.getElementById('groupFileInput');
+    const sendBtn = document.getElementById('groupSendBtn');
+    const POLL_MS = 1500;
     let poller = null;
 
-    function escapeHtml(s){ return String(s||'').replace(/[&<>'\"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":"&#39;"}[m];}); }
+    const meType = <?php echo json_encode($_SESSION['user_type'] ?? ''); ?>;
+    const meId = <?php echo json_encode($_SESSION['user_id'] ?? ''); ?>;
 
-    function buildOptionList(){
-        const sel = teacherSel(); if(!sel) return;
-        sel.innerHTML = '<option value="">-- Select teacher --</option>';
-        TEACHERS.forEach(t=>{
-            const val = (t.teacher_id && t.teacher_id.length) ? t.teacher_id : (t.id || '');
-            const disp = t.name || (t.first_name ? (t.first_name + ' ' + (t.last_name||'')) : val) || val;
-            const o = document.createElement('option'); o.value = val; o.text = disp; sel.appendChild(o);
-        });
-    }
+    function fmtTime(ts){ try{ return new Date(ts).toLocaleString(); }catch(e){ return ts||''; } }
 
-    function openModal(){
-        if(!modal) return; modal.style.display='flex'; modal.classList.add('open'); buildOptionList(); startPolling();
-        setTimeout(()=>{ inputEl() && inputEl().focus(); },120);
-    }
+    function escapeHtml(s){ return String(s||'').replace(/[&<>'"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];}); }
 
-    function closeModal(){ if(poller) clearInterval(poller); poller=null; if(modal){ modal.classList.remove('open'); modal.style.display='none'; } }
-
-    function renderMessage(m){
-        const box = messagesBox(); if(!box) return;
-        const meType = '<?php echo addslashes($_SESSION['user_type'] ?? ''); ?>';
-        const meId = '<?php echo addslashes($_SESSION['user_id'] ?? ''); ?>';
-        const mine = (String(m.from_type) === meType && String(m.from_id) === String(meId));
-        const row = document.createElement('div'); row.className = 'chat-row'; row.dataset.msgId = m.message_id || m.id || '';
-        row.style.display='flex'; row.style.justifyContent = mine ? 'flex-end' : 'flex-start'; row.style.marginBottom='8px';
-        const bubble = document.createElement('div'); bubble.style.maxWidth='78%'; bubble.style.padding='10px'; bubble.style.borderRadius='12px'; bubble.style.background = mine ? '#dcf8c6' : '#fff'; bubble.style.boxShadow='0 1px 0 rgba(0,0,0,0.05)';
-        const meta = document.createElement('div'); meta.style.fontSize='12px'; meta.style.color='#666'; meta.style.marginBottom='6px'; meta.textContent = (m.from_type||'') + ' · ' + (m.from_id||'') + ' · ' + (m.created_at || '');
+    function renderMessages(arr){ messagesBox.innerHTML=''; arr.forEach(m => {
+        const mine = String(m.from_type) === String(meType) && String(m.from_id) === String(meId);
+        const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent = mine ? 'flex-end' : 'flex-start'; row.style.marginBottom='10px';
+        const bubble = document.createElement('div'); bubble.style.maxWidth='78%'; bubble.style.padding='10px'; bubble.style.borderRadius='12px'; bubble.style.background = mine ? '#dcf8c6' : '#fff'; bubble.style.boxShadow='0 1px 0 rgba(0,0,0,0.04)';
+        const meta = document.createElement('div'); meta.style.fontSize='12px'; meta.style.color='#666'; meta.style.marginBottom='6px'; meta.textContent = (m.from_type||'') + ' · ' + (m.from_id||'') + ' · ' + fmtTime(m.created_at || m.ts || '');
         const text = document.createElement('div'); text.style.whiteSpace='pre-wrap'; text.textContent = m.message || m.content || '';
-        bubble.appendChild(meta); bubble.appendChild(text); row.appendChild(bubble); box.appendChild(row); box.scrollTop = box.scrollHeight;
-    }
-
-    function renderMessages(arr){ const box = messagesBox(); if(!box) return; box.innerHTML=''; arr.forEach(renderMessage); }
+        bubble.appendChild(meta);
+        if(text.textContent) bubble.appendChild(text);
+        if(m.attachment){ const a = document.createElement('div'); a.style.marginTop='6px'; const link = document.createElement('a'); link.href = m.attachment; link.target='_blank'; link.textContent = 'Attachment'; a.appendChild(link); bubble.appendChild(a); }
+        row.appendChild(bubble); messagesBox.appendChild(row);
+    }); messagesBox.scrollTop = messagesBox.scrollHeight; }
 
     async function fetchMessages(){
         try{
-            const group = groupCb() && groupCb().checked;
-            let url = null;
-            if(group){ url = 'api/get_group_messages.php'; }
-            else { const other = teacherSel().value; if(!other) return; url = 'api/get_messages.php?other_type=teacher&other_id='+encodeURIComponent(other); }
-            const res = await fetch(url); const j = await res.json(); if(j && j.success && Array.isArray(j.messages)){
+            const res = await fetch('api/get_group_messages.php');
+            const text = await res.text();
+            let j = null;
+            try{ j = JSON.parse(text); } catch(err){ console.warn('get_group_messages non-json response', text); return; }
+            if(j && j.success && Array.isArray(j.messages)){
                 renderMessages(j.messages);
+            } else if (j && !j.success) {
+                console.warn('get_group_messages error', j.message || j.detail || j);
             }
-        }catch(e){ console.warn('fetchMessages', e); }
+        }catch(e){ console.warn('group fetch error', e); }
     }
 
-    function startPolling(){ if(poller) clearInterval(poller); fetchMessages(); poller = setInterval(fetchMessages, 1500); }
+    function startPolling(){ if(poller) clearInterval(poller); fetchMessages(); poller = setInterval(fetchMessages, POLL_MS); }
+    function stopPolling(){ if(poller) clearInterval(poller); poller = null; }
+
+    async function uploadFile(file){
+        try{
+            const fd = new FormData(); fd.append('file', file);
+            const r = await fetch('api/upload_attachment.php', { method: 'POST', body: fd });
+            const j = await r.json(); if(j && j.success) return j.url; throw new Error(j && j.message ? j.message : 'Upload failed');
+        }catch(e){ console.warn('upload error', e); alert('File upload failed'); return null; }
+    }
 
     async function sendMessage(){
-        const txt = (inputEl() && inputEl().value || '').trim(); if(!txt) return;
-        const group = groupCb() && groupCb().checked;
-        const payload = { message: txt };
-        if(group){ payload.to_type = 'group'; payload.to_id = 'all'; }
-        else { payload.to_type = 'teacher'; payload.to_id = teacherSel().value; if(!payload.to_id){ alert('Select a teacher or enable group chat'); return; } }
+        const txt = (inputEl.value||'').trim(); const file = fileEl.files && fileEl.files[0];
+        if(!txt && !file){ alert('Enter a message or attach a file.'); return; }
+        sendBtn.disabled = true;
+        let attachmentUrl = null;
+        if(file){ attachmentUrl = await uploadFile(file); }
+
+        const payload = { to_type: 'group', to_id: 'all', message: txt };
+        if(attachmentUrl) payload.attachment = attachmentUrl;
 
         // optimistic echo
-        const tempMsg = { message_id: 'tmp_' + Date.now(), from_type: '<?php echo addslashes($_SESSION['user_type'] ?? ''); ?>', from_id: '<?php echo addslashes($_SESSION['user_id'] ?? ''); ?>', message: txt, created_at: (new Date()).toISOString() };
-        renderMessage(tempMsg);
-        inputEl().value = '';
-
+        const temp = { message_id: 'tmp_' + Date.now(), from_type: meType, from_id: meId, message: txt, attachment: attachmentUrl, created_at: (new Date()).toISOString() };
+        renderMessages((function(){ const cur = []; messagesBox.querySelectorAll('div').forEach(()=>{}); return []; })());
+        // call send endpoint
         try{
             const res = await fetch('api/send_message.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            const j = await res.json();
-            if(!(j && j.success)){
+            const text = await res.text();
+            let j = null;
+            try{ j = JSON.parse(text); } catch(err){ alert('Server error: ' + text); console.warn('send_message non-json response', text); }
+            if(j && !(j && j.success)){
                 alert('Send failed: ' + (j && j.message ? j.message : 'Unknown'));
             }
-            fetchMessages();
         }catch(e){ alert('Network error'); console.warn(e); }
+        inputEl.value = ''; fileEl.value = '';
+        sendBtn.disabled = false;
+        fetchMessages();
     }
 
-    // wire UI
-    window.openServerChatModal = openModal;
-    window.closeServerChatModal = closeModal;
-    document.addEventListener('click', function(e){ if(e.target && e.target.id === 'sendServerBtn'){ sendMessage(); } });
-    document.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ const focused = document.activeElement; if(focused && focused.id === 'chatInputServer'){ e.preventDefault(); sendMessage(); } } });
-
+    openBtn && openBtn.addEventListener('click', function(){ modal.style.display='flex'; modal.classList.add('open'); startPolling(); setTimeout(()=>inputEl.focus(),120); });
+    closeBtn && closeBtn.addEventListener('click', function(){ modal.classList.remove('open'); modal.style.display='none'; stopPolling(); });
+    sendBtn && sendBtn.addEventListener('click', sendMessage);
+    inputEl && inputEl.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sendMessage(); } });
 })();
 </script>
 </body>

@@ -491,6 +491,7 @@ function deleteStudent($rollNumber) {
         $result = $stmt->execute([$rollNumber]);
         return ['success' => (bool)$result];
     } catch (Exception $e) {
+        @file_put_contents(__DIR__ . '/../logs/api_errors.log', '[' . date('c') . '] addMessage error: ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
         return ['success' => false, 'message' => $e->getMessage()];
     }
 }
@@ -521,6 +522,7 @@ function getStudentRemarks($studentRoll) {
         $stmt->execute([$studentRoll]);
         return $stmt->fetchAll();
     } catch (Exception $e) {
+        @file_put_contents(__DIR__ . '/../logs/api_errors.log', '[' . date('c') . '] getConversationMessages error: ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
         return [];
     }
 }
@@ -546,7 +548,7 @@ function getLatestStudentRemark($studentRoll) {
  */
 function addMessage($fromType, $fromId, $toType, $toId, $message, $attachment = null) {
     try {
-        $db = getDB();
+        $db = getMessageDB();
         $stmt = $db->prepare('INSERT INTO messages (from_type, from_id, to_type, to_id, message, attachment, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())');
         $result = $stmt->execute([$fromType, $fromId, $toType, $toId, $message, $attachment]);
         if ($result) {
@@ -554,6 +556,7 @@ function addMessage($fromType, $fromId, $toType, $toId, $message, $attachment = 
         }
         return ['success' => false];
     } catch (Exception $e) {
+        @file_put_contents(__DIR__ . '/../logs/api_errors.log', '[' . date('c') . '] markMessageDeletedForUser error: ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
         return ['success' => false, 'message' => $e->getMessage()];
     }
 }
@@ -563,7 +566,7 @@ function addMessage($fromType, $fromId, $toType, $toId, $message, $attachment = 
  */
 function getConversationMessages($typeA, $idA, $typeB, $idB, $limit = 200) {
     try {
-        $db = getDB();
+        $db = getMessageDB();
         // Exclude messages that are deleted for everyone or deleted for this viewer
         $sql = 'SELECT m.*, CASE WHEN m.from_type = ? AND m.from_id = ? THEN 1 ELSE 0 END as self_flag
             FROM messages m
@@ -575,11 +578,20 @@ function getConversationMessages($typeA, $idA, $typeB, $idB, $limit = 200) {
             LIMIT ?';
 
         $stmt = $db->prepare($sql);
-        $params = [ $typeA, $idA,
-                    $typeA, $idA, $typeB, $idB,
-                    $typeB, $idB, $typeA, $idA,
-                    $typeA, $idA,
-                    (int)$limit ];
+        // Parameter order must match the placeholders in $sql exactly.
+        // Placeholders order:
+        // 1) CASE WHEN m.from_type = ? AND m.from_id = ?
+        // 2) first side of OR: m.from_type = ?, m.from_id = ?, m.to_type = ?, m.to_id = ?
+        // 3) second side of OR: m.from_type = ?, m.from_id = ?, m.to_type = ?, m.to_id = ?
+        // 4) deletion filter for this viewer: md2.deleted_by_type = ?, md2.deleted_by_id = ?
+        // 5) LIMIT ?
+        $params = [
+            $typeA, $idA,
+            $typeA, $idA, $typeB, $idB,
+            $typeB, $idB, $typeA, $idA,
+            $typeA, $idA,
+            (int)$limit
+        ];
         $stmt->execute($params);
         return $stmt->fetchAll();
     } catch (Exception $e) {
@@ -592,11 +604,12 @@ function getConversationMessages($typeA, $idA, $typeB, $idB, $limit = 200) {
  */
 function markMessageDeletedForUser($messageId, $userType, $userId) {
     try {
-        $db = getDB();
+        $db = getMessageDB();
         $stmt = $db->prepare('INSERT INTO message_deletions (message_id, deleted_by_type, deleted_by_id, deleted_for_everyone, deleted_at) VALUES (?, ?, ?, 0, NOW()) ON DUPLICATE KEY UPDATE deleted_at = NOW()');
         $res = $stmt->execute([$messageId, $userType, $userId]);
         return ['success' => (bool)$res];
     } catch (Exception $e) {
+        @file_put_contents(__DIR__ . '/../logs/api_errors.log', '[' . date('c') . '] deleteMessageForEveryone error: ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
         return ['success' => false, 'message' => $e->getMessage()];
     }
 }
@@ -606,7 +619,7 @@ function markMessageDeletedForUser($messageId, $userType, $userId) {
  */
 function deleteMessageForEveryone($messageId, $actorType, $actorId) {
     try {
-        $db = getDB();
+        $db = getMessageDB();
         // verify actor is the sender
         $stmt = $db->prepare('SELECT from_type, from_id FROM messages WHERE message_id = ? LIMIT 1');
         $stmt->execute([$messageId]);
