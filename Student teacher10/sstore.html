@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stored Student Profiles</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to right, #d7d2cc, #a9d2f1);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #000000;
+    }
+
+    h2 {
+      text-align: center;
+      padding: 20px;
+      font-size: 28px;
+    }
+
+    .profile-card {
+      background: rgb(249, 237, 237);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 800px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .profile-photo {
+      width: 130px;
+      height: 130px;
+      border-radius: 15px;
+      object-fit: cover;
+      border: 3px solid #ffffff44;
+    }
+
+    .profile-details {
+      flex-grow: 1;
+    }
+
+    .profile-details p {
+      margin: 6px 0;
+      font-size: 14px;
+    }
+
+    .actions {
+      margin-top: 10px;
+    }
+
+    .edit-btn, .delete-btn, .logout-btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .edit-btn {
+      background-color: #28a745;
+      color: #fff;
+    }
+
+    .edit-btn:hover {
+      background-color: #218838;
+    }
+
+    .delete-btn {
+      background-color: #dc3545;
+      color: #fff;
+    }
+
+    .delete-btn:hover {
+      background-color: #c82333;
+    }
+
+    .logout-btn {
+      display: block;
+      margin: 30px auto;
+      background-color: #f44336;
+      color: white;
+      font-size: 16px;
+    }
+
+    .logout-btn:hover {
+      background-color: #d32f2f;
+    }
+
+    /* Action buttons similar to tdetails */
+    .students-btn {
+      background-color: #28a745;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .teachers-btn {
+      background-color: #6c757d;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .attendance-btn {
+      background-color: #ffc107;
+      color: #333;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .editable {
+      display: none;
+      margin-top: 5px;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      width: 100%;
+    }
+
+    span.remarks-label {
+      display: inline-block;
+      min-width: 700px;
+      color: #000000;
+    }
+  </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+  
+
+  <h2>Students Profiles</h2>
+  <div style="text-align:center; margin-bottom:8px;">
+    <button class="students-btn" onclick="goToStudents()">Students</button>
+    <button class="teachers-btn" onclick="goToTeachers()">Other Teachers</button>
+    <button class="attendance-btn" onclick="goToAttendance()">Attendance</button>
+    <button class="teachers-btn" onclick="location.href='tdetails.html'">Your Profile</button>
+  </div>
+  <div style="max-width:900px;margin:0 auto;">
+    <table id="studentsTable" style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;">
+      <thead style="background:#f1f5f9;text-align:left;">
+        <tr>
+          <th style="padding:12px 16px;border-bottom:1px solid #e6eefb">Name</th>
+          <th style="padding:12px 16px;border-bottom:1px solid #e6eefb">Roll No.</th>
+          <th style="padding:12px 16px;border-bottom:1px solid #e6eefb;width:140px">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="studentsTableBody"></tbody>
+    </table>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <!-- Profile modal -->
+  <div id="profileModal" style="display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:18px;border-radius:10px;max-width:560px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,0.2);position:relative;">
+      <button onclick="closeProfileModal()" style="position:absolute;right:12px;top:12px;border:none;background:none;font-size:20px;cursor:pointer">✕</button>
+      <div id="modalContent"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+        <button class="btn btn-add" onclick="saveProfileChanges()">Save</button>
+        <button class="btn" onclick="closeProfileModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+function displayProfiles() {
+  const tbody = document.getElementById('studentsTableBody');
+  tbody.innerHTML = '';
+  // build an array of student objects, sort by roll number ascending, then render
+  const users = Object.keys(localStorage)
+    .filter(k => k.startsWith('user_'))
+    .map(k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } })
+    .filter(Boolean);
+
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;text-align:center;color:#666">No student profiles found.</td></tr>';
+    return;
+  }
+
+  users.sort((a, b) => {
+    const ra = Number(a.rollNo);
+    const rb = Number(b.rollNo);
+    if (!isNaN(ra) && !isNaN(rb)) return ra - rb;
+    return String(a.rollNo).localeCompare(String(b.rollNo));
+  });
+
+  users.forEach(s => {
+    try {
+      const tr = document.createElement('tr');
+      const viewBtn = `<button class="btn" onclick="viewProfile('${s.rollNo}')">View more</button>`;
+      const deleteBtn = `<button class="delete-btn" onclick="deleteProfile('${s.rollNo}')">Delete</button>`;
+      tr.innerHTML = `<td style="padding:12px 16px;border-bottom:1px solid #eef6ff">${escapeHtml(s.name || '')}</td>
+                      <td style="padding:12px 16px;border-bottom:1px solid #eef6ff">${escapeHtml(s.rollNo || '')}</td>
+                      <td style="padding:12px 16px;border-bottom:1px solid #eef6ff">${viewBtn} ${deleteBtn}</td>`;
+      tbody.appendChild(tr);
+    } catch (e) { /* ignore malformed */ }
+  });
+}
+
+function escapeHtml(str){ return String(str||'').replace(/[&<>'"]/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":"&#39;",'"':'&quot;'}[m];}); }
+
+function viewProfile(rollNo){
+  const key = `user_${rollNo}`;
+  const data = JSON.parse(localStorage.getItem(key) || '{}');
+  const modal = document.getElementById('profileModal');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <img src="${data.photoURL || 'placeholder.jpg'}" style="width:110px;height:110px;border-radius:10px;object-fit:cover;border:3px solid #f1f5f9" />
+      <div style="flex:1">
+        <h3 style="margin:0 0 8px 0">${escapeHtml(data.name||'')}</h3>
+        <p style="margin:6px 0"><strong>Roll No:</strong> ${escapeHtml(data.rollNo||'')}</p>
+        <p style="margin:6px 0"><strong>DOB:</strong> ${escapeHtml(data.dob||'')}</p>
+        <p style="margin:6px 0"><strong>Father's Name:</strong> ${escapeHtml(data.fatherName||'')}</p>
+        <p style="margin:6px 0"><strong>Mother's Name:</strong> ${escapeHtml(data.motherName||'')}</p>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label for="remarksField"><strong>Remarks</strong></label>
+      <textarea id="remarksField" style="width:100%;height:80px;padding:8px;border-radius:6px;border:1px solid #e6eefb">${escapeHtml(data.remarks||'')}</textarea>
+    </div>
+    <input type="hidden" id="modalRollNo" value="${escapeHtml(data.rollNo||'')}" />
+  `;
+  modal.style.display = 'flex';
+}
+
+function closeProfileModal(){ document.getElementById('profileModal').style.display='none'; }
+
+function saveProfileChanges(){
+  const roll = document.getElementById('modalRollNo').value;
+  const remarks = document.getElementById('remarksField').value.trim();
+  const key = `user_${roll}`;
+  try{
+    const data = JSON.parse(localStorage.getItem(key) || '{}');
+    data.remarks = remarks;
+    localStorage.setItem(key, JSON.stringify(data));
+    // notify other pages to refresh
+    try{ localStorage.setItem('attendance_update_signal', Date.now().toString()); }catch(e){}
+  }catch(e){/* ignore */}
+  closeProfileModal();
+  displayProfiles();
+}
+
+function deleteProfile(rollNo){
+  try{
+    if(!rollNo) return;
+    if(!confirm('Delete profile for roll ' + rollNo + '? This will remove the student profile, chat data and attendance entries.')) return;
+    const userKey = `user_${rollNo}`;
+    try{ localStorage.removeItem(userKey); }catch(e){}
+
+    // collect keys to remove for chats and hidden lists
+    const keysToRemove = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(!k) continue;
+      // chat keys: chat_<idA>_<idB>
+      if(k.startsWith('chat_')){
+        const parts = k.slice(5).split('_');
+        if(parts.indexOf(String(rollNo)) !== -1) keysToRemove.push(k);
+      }
+      // chat_hidden_<user>_<chatKey>
+      if(k.startsWith('chat_hidden_')){
+        // format: chat_hidden_<user>_<chatKey>
+        const rest = k.slice('chat_hidden_'.length);
+        const idx = rest.indexOf('_');
+        if(idx === -1) continue;
+        const uid = rest.slice(0, idx);
+        const chatKey = rest.slice(idx + 1);
+        if(String(uid) === String(rollNo)) { keysToRemove.push(k); continue; }
+        const chatParts = chatKey.split('_'); if(chatParts.indexOf(String(rollNo)) !== -1) keysToRemove.push(k);
+      }
+    }
+    // Remove collected keys
+    keysToRemove.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+
+    // Remove attendance rows for this student across all attendanceTableData_* keys
+    const attKeysToUpdate = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(!k) continue;
+      if(k.startsWith('attendanceTableData_')){
+        try{
+          const raw = localStorage.getItem(k) || '{}';
+          const parsed = JSON.parse(raw);
+          if(parsed && Array.isArray(parsed.rows)){
+            const before = parsed.rows.length;
+            parsed.rows = parsed.rows.filter(r => String(r.roll) !== String(rollNo) && String(r.rollNumber) !== String(rollNo));
+            if(parsed.rows.length !== before){
+              attKeysToUpdate.push({ key: k, data: parsed });
+            }
+          }
+        }catch(e){}
+      }
+    }
+    attKeysToUpdate.forEach(it=>{ try{ localStorage.setItem(it.key, JSON.stringify(it.data)); }catch(e){} });
+
+    // signal other pages
+    try{ localStorage.setItem('attendance_update_signal', Date.now().toString()); }catch(e){}
+    try{ localStorage.setItem('chat_update_signal', Date.now().toString()); }catch(e){}
+
+    // refresh list
+    displayProfiles();
+  }catch(e){ alert('Failed to delete profile'); }
+}
+
+function logout() { localStorage.removeItem('currentUserId'); window.location.href='log.html'; }
+
+window.onload = displayProfiles;
+
+function goToStudents(){ window.location.href='sstore.html'; }
+function goToTeachers(){ try{ localStorage.setItem('fromTStoreSource','sstore'); }catch(e){}; window.location.href='tstore1.html'; }
+function goToAttendance(){ window.location.href='attendance.html'; }
+</script>
+
+</body>
+</html>

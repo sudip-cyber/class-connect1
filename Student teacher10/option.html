@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to right, #ffecd2, #fcb69f);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.2);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 90%;
+            max-width: 350px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .option-button {
+            display: block;
+            width: 100%;
+            padding: 14px 0;
+            margin-bottom: 20px;
+            background: #333;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        .option-button:hover {
+            background-color: #555;
+            transform: scale(1.03);
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                padding: 20px;
+            }
+
+            .option-button {
+                font-size: 15px;
+                padding: 12px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+
+<div class="container">
+    <h2>Select an Option</h2>
+    <button class="option-button" onclick="redirectToStore()">Go to Store</button>
+    <button class="option-button" onclick="redirectToStudents()">Students</button>
+    <button class="option-button" onclick="redirectToTeacherProfile()">Teacher Profile</button>
+</div>
+
+<script>
+    function redirectToStore() {
+        window.location.href = 'store.html';
+    }
+
+    function redirectToTeacherProfile() {
+        window.location.href = 'tstore.html';
+    }
+    function redirectToStudents(){
+        try{ localStorage.setItem('fromOption', 'sstore'); }catch(e){}
+        window.location.href = 'sstore.html';
+    }
+</script>
+
+</body>
+</html>

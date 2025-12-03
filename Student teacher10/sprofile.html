@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Profile</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(120deg, #c2e9fb 0%, #a1c4fd 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .form-container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin: 15px 0 5px;
+            color: #444;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #007BFF;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #388e3c;
+        }
+
+        .image-preview {
+            display: block;
+            max-width: 100px;
+            margin-top: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+
+
+
+<div class="form-container">
+    <h2>Create Your Profile</h2>
+
+    <form id="profileForm">
+        <label for="profilePicture">Upload Profile Picture:</label>
+        <input type="file" id="profilePicture" accept="image/*" onchange="previewImage(event)" required>
+        <img id="imagePreview" class="image-preview" src="" alt="Image Preview" style="display:none;">
+
+        <label for="name">Name:</label>
+        <input type="text" id="name" placeholder="Enter your name" required>
+
+        <label for="rollNo">Roll No.:</label>
+        <input type="text" id="rollNo" placeholder="Enter your roll number (10 digits)" required pattern="\d{10}">
+
+        <label for="dob">Date of Birth:</label>
+        <input type="date" id="dob" required>
+
+        <label for="fatherName">Father's Name:</label>
+        <input type="text" id="fatherName" placeholder="Enter father's name" required pattern="[a-zA-Z ]+">
+
+        <label for="motherName">Mother's Name:</label>
+        <input type="text" id="motherName" placeholder="Enter mother's name" required pattern="[a-zA-Z ]+">
+
+        <label for="sgpa1">1st Semester SGPA:</label>
+        <input type="number" step="0.01" id="sgpa1" placeholder="Enter SGPA for 1st semester">
+
+        <label for="sgpa2">2nd Semester SGPA:</label>
+        <input type="number" step="0.01" id="sgpa2" placeholder="Enter SGPA for 2nd semester">
+
+        <label for="sgpa3">3rd Semester SGPA:</label>
+        <input type="number" step="0.01" id="sgpa3" placeholder="Enter SGPA for 3rd semester">
+
+        <button type="button" onclick="saveProfile()">Submit</button>
+    </form>
+</div>
+
+<script>
+function previewImage(event) {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const imagePreview = document.getElementById('imagePreview');
+        imagePreview.src = e.target.result;
+        imagePreview.style.display = 'block';
+    };
+    
+    if (file) {
+        reader.readAsDataURL(file);
+    }
+}
+
+function saveProfile() {
+    const name = document.getElementById('name').value.trim();
+    const rollNo = document.getElementById('rollNo').value.trim();
+    const dob = document.getElementById('dob').value.trim();
+    const fatherName = document.getElementById('fatherName').value.trim();
+    const motherName = document.getElementById('motherName').value.trim();
+    const sgpa1 = document.getElementById('sgpa1').value.trim();
+    const sgpa2 = document.getElementById('sgpa2').value.trim();
+    const sgpa3 = document.getElementById('sgpa3').value.trim();
+    const userId = localStorage.getItem('currentUserId');
+
+    if (rollNo.length !== 10) {
+        alert("Roll number must be exactly 10 digits.");
+        return;
+    }
+
+    if (userId !== rollNo) {
+        alert("Roll number does not match your logged-in ID.");
+        return;
+    }
+
+    if (sgpa1 && isNaN(parseFloat(sgpa1))) {
+        alert("Invalid SGPA for 1st semester.");
+        return;
+    }
+    if (sgpa2 && isNaN(parseFloat(sgpa2))) {
+        alert("Invalid SGPA for 2nd semester.");
+        return;
+    }
+    if (sgpa3 && isNaN(parseFloat(sgpa3))) {
+        alert("Invalid SGPA for 3rd semester.");
+        return;
+    }
+
+    const photoURL = document.getElementById('imagePreview').src;
+
+    const userData = {
+        name,
+        rollNo,
+        dob,
+        fatherName,
+        motherName,
+        sgpa1: sgpa1 ? parseFloat(sgpa1) : null,
+        sgpa2: sgpa2 ? parseFloat(sgpa2) : null,
+        sgpa3: sgpa3 ? parseFloat(sgpa3) : null,
+        photoURL,
+    };
+
+    const existingProfiles = JSON.parse(localStorage.getItem('profiles')) || [];
+    existingProfiles.push(userData);
+
+    localStorage.setItem('profiles', JSON.stringify(existingProfiles));
+    localStorage.setItem(`user_${rollNo}`, JSON.stringify(userData));
+    // After creating profile, redirect to the details page
+    window.location.href = 'sdetails.html';
+}
+
+window.onload = function() {
+    if (!localStorage.getItem('currentUserId')) {
+        alert("Please log in first!");
+        window.location.href = 'log.html';
+    }
+};
+</script>
+
+</body>
+</html>

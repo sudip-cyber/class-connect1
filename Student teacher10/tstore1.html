@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Teacher Profiles</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #b6dbf8;
+      margin: 0;
+      padding: 30px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+
+    
+    input[type="text"],
+    input[type="date"],
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background-color: #4a90e2;
+      color: #fff;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #357ab8;
+    }
+
+    /* Buttons matching tdetails styles */
+    .students-btn {
+      background-color: #28a745;
+      color: white;
+      font-size: 13px;
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .students-btn:hover { opacity: 0.9; }
+
+    .teachers-btn {
+      background-color: #6c757d;
+      color: white;
+      font-size: 13px;
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .teachers-btn:hover { opacity: 0.9; }
+
+    .attendance-btn {
+      background-color: #ffc107;
+      color: #333;
+      font-size: 13px;
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .attendance-btn:hover { opacity: 0.95; }
+
+    #profilesContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .teacher-profile {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+      max-width: 300px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+    }
+
+    .teacher-profile img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #d6e9ff;
+      margin-bottom: 15px;
+    }
+
+    .teacher-profile h3 {
+      margin: 10px 0 5px;
+      color: #2c3e50;
+    }
+
+    .teacher-profile p {
+      font-size: 14px;
+      color: #555;
+      margin: 5px 0;
+    }
+
+    .teacher-profile .actions {
+      margin-top: 15px;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .teacher-profile .actions button {
+      background-color: #28a745;
+      font-size: 13px;
+      padding: 7px 12px;
+    }
+
+    
+
+    .teacher-profile .actions button:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+
+  
+
+  <h2>Other Teacher Profiles</h2>
+
+  <form id="profileForm">
+    
+  </form>
+
+  <div id="topNavButtons" style="text-align:center; margin-bottom:12px;">
+    <!-- Buttons will be injected here based on navigation source -->
+  </div>
+
+  <div id="profilesContainer"></div>
+
+  <script>
+    document.getElementById('profileForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const id = document.getElementById('id').value.trim();
+      const photo = document.getElementById('photo').files[0];
+      const name = document.getElementById('name').value.trim();
+      const dob = document.getElementById('dob').value.trim();
+      const institute = document.getElementById('institute').value.trim();
+      const year = document.getElementById('year').value.trim();
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const newTeacher = {
+          id,
+          photoData: event.target.result,
+          name,
+          dob,
+          institute,
+          year
+        };
+
+        const teachers = JSON.parse(localStorage.getItem('teachers')) || [];
+        teachers.push(newTeacher);
+        localStorage.setItem('teachers', JSON.stringify(teachers));
+        displayProfiles();
+        document.getElementById('profileForm').reset();
+      };
+      reader.readAsDataURL(photo);
+    });
+
+    function displayProfiles() {
+      const profilesContainer = document.getElementById('profilesContainer');
+      profilesContainer.innerHTML = '';
+
+      const teachers = JSON.parse(localStorage.getItem('teachers')) || [];
+
+      if (teachers.length === 0) {
+        profilesContainer.innerHTML = '<p>No teacher profiles stored.</p>';
+        return;
+      }
+
+      teachers.forEach((teacher, index) => {
+        profilesContainer.innerHTML += `
+          <div class='teacher-profile' id='teacher-${index}'>
+            <img src="${teacher.photoData}" alt='Profile Photo'>
+            <h3>${teacher.name}</h3>
+            <p><strong>DOB:</strong> ${teacher.dob}</p>
+            <p><strong>Institute:</strong> ${teacher.institute}</p>
+            <p><strong>Year:</strong> ${teacher.year}</p>
+            
+          </div>
+        `;
+      });
+    }
+
+    function editProfile(index) {
+      const teachers = JSON.parse(localStorage.getItem('teachers'));
+
+      const newName = prompt("Enter new name:", teachers[index].name);
+      const newDob = prompt("Enter new DOB (YYYY-MM-DD):", teachers[index].dob);
+      const newInstitute = prompt("Enter new institute:", teachers[index].institute);
+      const newYear = prompt("Enter new passing year:", teachers[index].year);
+
+      if (newName && newDob && newInstitute && newYear) {
+        teachers[index].name = newName;
+        teachers[index].dob = newDob;
+        teachers[index].institute = newInstitute;
+        teachers[index].year = newYear;
+
+        localStorage.setItem('teachers', JSON.stringify(teachers));
+        displayProfiles();
+      } else {
+        alert("All fields must be filled.");
+      }
+    }
+
+    function deleteProfile(index) {
+      if (confirm("Are you sure you want to delete this profile?")) {
+        let teachers = JSON.parse(localStorage.getItem('teachers'));
+        teachers.splice(index, 1);
+        localStorage.setItem('teachers', JSON.stringify(teachers));
+        displayProfiles();
+      }
+    }
+
+    // Set the selected teacher as current user and navigate to students list
+    function viewStudents(teacherId) {
+      if (!teacherId) return;
+      localStorage.setItem('currentUserId', teacherId);
+      window.location.href = 'sstore.html';
+    }
+
+    // Set the selected teacher as current user and open their detail view
+    function viewTeacher(teacherId) {
+      if (!teacherId) return;
+      localStorage.setItem('currentUserId', teacherId);
+      window.location.href = 'tdetails.html';
+    }
+
+    // Set the selected teacher as current user and open the attendance page
+    function viewAttendance(teacherId) {
+      if (!teacherId) return;
+      localStorage.setItem('currentUserId', teacherId);
+      window.location.href = 'attendance.html';
+    }
+
+    window.onload = function() {
+      // Populate top navigation buttons depending on where we came from.
+      try {
+        const src = localStorage.getItem('fromTStoreSource');
+        const top = document.getElementById('topNavButtons');
+        if (top) {
+          // Two groups:
+          // Group A (from sdetails or viewo): View Other Students, Teachers, My Profile (student-focused)
+          // Group B (from tdetails, attendance, sstore): Students, Other Teachers, Attendance, Your Profile (teacher-focused)
+          if (src === 'sdetails' || src === 'viewo') {
+            top.innerHTML = `
+              <button class="students-btn" onclick="location.href='viewo.html'">View Other Students</button>
+              <button class="teachers-btn" onclick="location.href=">Teachers</button>
+              <button class="teachers-btn" onclick="location.href='sdetails.html'">My Profile</button>
+            `;
+            top.style.display = '';
+          } else if (src === 'tdetails' || src === 'attendance' || src === 'sstore') {
+            top.innerHTML = `
+              <button class="students-btn" onclick="location.href='sstore.html'">Students</button>
+              <button class="teachers-btn" onclick="location.href=">Other Teachers</button>
+              <button class="attendance-btn" onclick="location.href='attendance.html'">Attendance</button>
+              <button class="teachers-btn" onclick="location.href='tdetails.html'">Your Profile</button>
+            `;
+            top.style.display = '';
+          } else {
+            // No recognized source: hide the top buttons
+            top.style.display = 'none';
+          }
+        }
+      } catch (e) { /* ignore */ }
+      // clear the flag so subsequent navigations behave normally
+      try { localStorage.removeItem('fromTStoreSource'); } catch (e) {}
+      displayProfiles();
+    };
+  </script>
+
+</body>
+
+<!-- Close button placed inside the body and wired to go back -->
+  <button id="closeBtn" title="Close" style="position:fixed; right:16px; top:12px; background:none; border:none; font-size:26px; cursor:pointer; padding:6px; line-height:1;">✕</button>
+
+  <script>
+    // Wire the close button: try history.back(), otherwise go to index.html
+    (function(){
+      var closeBtn = document.getElementById('closeBtn');
+      if (!closeBtn) return;
+      closeBtn.addEventListener('click', function(){
+        try {
+          if (window.history && window.history.length > 1) {
+            window.history.back();
+          } else {
+            window.location.href = 'index.html';
+          }
+        } catch (e) {
+          window.location.href = 'index.html';
+        }
+      });
+    })();
+  </script>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Class Notifications</title>
+    <style>
+        :root {
+            --bg: #e9f2ff;
+            --card: #ffffff;
+            --accent: #2b6ef6;
+            --success: #28a745;
+            --warning: #f0ad4e;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(180deg,var(--bg),#f7fbff);
+            margin: 0;
+            min-height: 100vh;
+            padding: 2rem;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(35,50,80,0.08);
+        }
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .next-class {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            color: #0c4a6e;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+        .time {
+            white-space: nowrap;
+            color: #64748b;
+        }
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 1rem 0;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+    <div class="container">
+        <h1>Class Notifications</h1>
+        <button id="enableBtn" class="btn">Enable Notifications</button>
+        <div id="status" class="status">Waiting for notification permission...</div>
+        <div id="nextClass" class="status next-class"></div>
+        <div id="schedule"></div>
+    </div>
+
+    <script>
+    // Class schedule data
+    const schedule = {
+        Monday: [
+            { time: '10:00-11:00', subject: 'Web Technologies', teachers: ['VL'] },
+            { time: '11:00-12:00', subject: 'Introduction to e-Governance', teachers: ['VL'] },
+            { time: '12:00-13:00', subject: 'Learning Resources', teachers: [] },
+            { time: '13:00-14:00', subject: 'FOSS', teachers: ['VL'] },
+            { time: '15:00-16:00', subject: 'Networking Lab', teachers: ['DT', 'RS'] },
+            { time: '16:00-17:00', subject: 'Networking Lab', teachers: ['DT', 'RS'] }
+        ],
+        Tuesday: [
+            { time: '10:00-11:00', subject: 'Project', teachers: ['RS', 'DT'] },
+            { time: '11:00-12:00', subject: 'FOSS', teachers: ['VL'] },
+            { time: '12:00-13:00', subject: 'Open Elective I', teachers: ['DT'] },
+            { time: '13:00-14:00', subject: 'Open Elective I', teachers: ['DT'] },
+            { time: '15:00-16:00', subject: 'Data Science', teachers: ['VL'] },
+            { time: '16:00-17:00', subject: 'Data Science', teachers: ['VL'] }
+        ],
+        Wednesday: [
+            { time: '10:00-11:00', subject: 'IoT', teachers: ['RS'] },
+            { time: '11:00-12:00', subject: 'IoT', teachers: ['RS'] },
+            { time: '12:00-13:00', subject: 'Data Science', teachers: ['VL'] },
+            { time: '13:00-14:00', subject: 'Open Elective I', teachers: ['DT'] }
+        ],
+        Thursday: [
+            { time: '10:00-11:00', subject: 'Introduction to e-Governance', teachers: ['VL'] },
+            { time: '11:00-12:00', subject: 'Web Technologies Lab', teachers: ['RS', 'DT'] },
+            { time: '12:00-13:00', subject: 'Web Technologies Lab', teachers: ['RS', 'DT'] },
+            { time: '13:00-14:00', subject: 'Learning Resources', teachers: [] },
+            { time: '15:00-16:00', subject: 'Project', teachers: ['RS', 'DT'] },
+            { time: '16:00-17:00', subject: 'Project', teachers: ['RS', 'DT'] }
+        ]
+    };
+
+    // Parse time string to Date object
+    function parseTime(timeStr, dayOffset = 0) {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const date = new Date();
+        date.setDate(date.getDate() + dayOffset);
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+    }
+
+    // Get next class based on current time
+    function getNextClass() {
+        const now = new Date();
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const today = dayNames[now.getDay()];
+        
+        // Check today's remaining classes
+        if (schedule[today]) {
+            for (const cls of schedule[today]) {
+                const [startTime] = cls.time.split('-');
+                const classTime = parseTime(startTime);
+                if (classTime > now) {
+                    return { ...cls, day: today, date: classTime };
+                }
+            }
+        }
+        
+        // Check next days
+        let daysChecked = 0;
+        let currentDay = now.getDay();
+        
+        while (daysChecked < 7) {
+            currentDay = (currentDay + 1) % 7;
+            const nextDay = dayNames[currentDay];
+            daysChecked++;
+            
+            if (schedule[nextDay]) {
+                const firstClass = schedule[nextDay][0];
+                const classTime = parseTime(firstClass.time.split('-')[0], daysChecked);
+                return { ...firstClass, day: nextDay, date: classTime };
+            }
+        }
+        
+        return null;
+    }
+
+    // Format time difference for display
+    function formatTimeDiff(date) {
+        const diff = date - new Date();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        }
+        return `${minutes}m`;
+    }
+
+    // Update next class display
+    function updateNextClassDisplay() {
+        const nextClass = getNextClass();
+        const nextClassDiv = document.getElementById('nextClass');
+        
+        if (nextClass) {
+            const timeUntil = formatTimeDiff(nextClass.date);
+            nextClassDiv.innerHTML = `
+                <strong>Next Class:</strong> ${nextClass.subject}<br>
+                <span class="time">${nextClass.day} at ${nextClass.time}</span><br>
+                Starts in: ${timeUntil}
+            `;
+        } else {
+            nextClassDiv.innerHTML = 'No upcoming classes found';
+        }
+    }
+
+    // Display full schedule
+    function displaySchedule() {
+        const scheduleDiv = document.getElementById('schedule');
+        let html = '<h2>Weekly Schedule</h2>';
+        
+        for (const [day, classes] of Object.entries(schedule)) {
+            html += `
+                <h3>${day}</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Subject</th>
+                            <th>Teachers</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            classes.forEach(cls => {
+                html += `
+                    <tr>
+                        <td class="time">${cls.time}</td>
+                        <td>${cls.subject}</td>
+                        <td>${cls.teachers.join(', ') || '-'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+        }
+        
+        scheduleDiv.innerHTML = html;
+    }
+
+    // Notification system
+    let notificationCheckInterval;
+
+    function checkAndNotify() {
+        const nextClass = getNextClass();
+        if (!nextClass) return;
+
+        const minutesUntilClass = Math.floor((nextClass.date - new Date()) / (1000 * 60));
+        
+        // Notify 5 minutes before class
+        if (minutesUntilClass === 5) {
+            const notification = new Notification('Upcoming Class', {
+                body: `${nextClass.subject} starts in 5 minutes\n${nextClass.time}`,
+                icon: '/favicon.ico'
+            });
+        }
+    }
+
+    // Initialize notification system
+    document.getElementById('enableBtn').addEventListener('click', async () => {
+        const status = document.getElementById('status');
+        
+        try {
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+                status.textContent = 'Notifications enabled! You will be notified 5 minutes before each class.';
+                status.style.background = '#f0fdf4';
+                status.style.borderColor = '#86efac';
+                
+                // Start checking for classes to notify about
+                notificationCheckInterval = setInterval(checkAndNotify, 30000); // Check every 30 seconds
+            } else {
+                status.textContent = 'Notification permission denied. Please enable notifications in your browser settings.';
+                status.style.background = '#fef2f2';
+                status.style.borderColor = '#fecaca';
+            }
+        } catch (error) {
+            status.textContent = 'Error enabling notifications: ' + error.message;
+            status.style.background = '#fef2f2';
+            status.style.borderColor = '#fecaca';
+        }
+    });
+
+    // Initialize
+    displaySchedule();
+    updateNextClassDisplay();
+    setInterval(updateNextClassDisplay, 30000); // Update countdown every 30 seconds
+    </script>
+</body>
+</html>

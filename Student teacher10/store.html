@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stored Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+        }
+        .record {
+            margin-bottom: 10px;
+        }
+        button {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+
+
+
+<h2>Stored User Data</h2>
+
+<h3>Students:</h3>
+<div id="studentsData"></div>
+
+<h3>Teachers:</h3>
+<div id="teachersData"></div>
+
+<button onclick="redirectToIndex()">Go Back to Index</button>
+
+<script>
+// Function to display stored user data
+function displayUserData() {
+    const studentsData = JSON.parse(localStorage.getItem('studentsData')) || [];
+    const teachersData = JSON.parse(localStorage.getItem('teachersData')) || [];
+
+    let studentsOutput = '';
+    studentsData.forEach((student, index) => {
+      studentsOutput += `
+          <div class="record">
+              Name: ${student.name}, Roll Number: ${student.rollNumber}, Email: ${student.email || 'N/A'}, Phone: ${student.phone || 'N/A'}
+              <button onclick="editStudent(${index})">Edit</button>
+              <button onclick="deleteStudent(${index})">Delete</button>
+          </div>`;
+    });
+
+    document.getElementById("studentsData").innerHTML = studentsOutput;
+
+    let teachersOutput = '';
+    teachersData.forEach((teacher, index) => {
+      teachersOutput += `
+          <div class="record">
+              Name: ${teacher.name}, Teacher ID: ${teacher.teacherId}, Email: ${teacher.email || 'N/A'}, Phone: ${teacher.phone || 'N/A'}
+              <button onclick="editTeacher(${index})">Edit</button>
+              <button onclick="deleteTeacher(${index})">Delete</button>
+          </div>`;
+    });
+
+    document.getElementById("teachersData").innerHTML = teachersOutput;  
+}
+
+// Function to edit student data
+function editStudent(index) {
+    const studentsData = JSON.parse(localStorage.getItem('studentsData'));
+    const student = studentsData[index];
+    const newName = prompt("Edit Student Name:", student.name);
+    const newRollNumber = prompt("Edit Roll Number:", student.rollNumber);
+    const newEmail = prompt("Edit Email:", student.email || '');
+    const newPhone = prompt("Edit Phone (10 digits):", student.phone || '');
+    const newPassword = prompt("Edit Password:", student.password || '');
+
+    // basic validation: require values
+    if (newName && newRollNumber) {
+        studentsData[index] = {
+            name: newName,
+            rollNumber: newRollNumber,
+            email: newEmail || '',
+            phone: newPhone || '',
+            password: newPassword || ''
+        };
+        localStorage.setItem('studentsData', JSON.stringify(studentsData));
+        displayUserData();
+    }
+}
+
+// Function to delete student data
+function deleteStudent(index) {
+    const studentsData = JSON.parse(localStorage.getItem('studentsData'));
+    studentsData.splice(index, 1);
+    localStorage.setItem('studentsData', JSON.stringify(studentsData));
+    displayUserData();
+}
+
+// Function to edit teacher data
+function editTeacher(index) {
+    const teachersData = JSON.parse(localStorage.getItem('teachersData'));
+    const teacher = teachersData[index];
+    const newName = prompt("Edit Teacher Name:", teacher.name);
+    const newTeacherId = prompt("Edit Teacher ID:", teacher.teacherId);
+    const newEmail = prompt("Edit Email:", teacher.email || '');
+    const newPhone = prompt("Edit Phone (10 digits):", teacher.phone || '');
+    const newPassword = prompt("Edit Password:", teacher.password || '');
+
+    if (newName && newTeacherId) {
+        teachersData[index] = {
+            name: newName,
+            teacherId: newTeacherId,
+            email: newEmail || '',
+            phone: newPhone || '',
+            password: newPassword || ''
+        };
+        localStorage.setItem('teachersData', JSON.stringify(teachersData));
+        displayUserData();
+    }
+}
+
+// Function to delete teacher data
+function deleteTeacher(index) {
+    const teachersData = JSON.parse(localStorage.getItem('teachersData'));
+    teachersData.splice(index, 1);
+    localStorage.setItem('teachersData', JSON.stringify(teachersData));
+    displayUserData();
+}
+
+// Function to redirect back to index.html
+function redirectToIndex() {
+    window.location.href = "index.html"; // Redirect to index page
+}
+
+// Display user data when the page loads
+displayUserData();
+</script>
+
+</body>
+</html>

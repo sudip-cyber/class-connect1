@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .login-container {
+      background: #ffffff;
+      padding: 40px 30px;
+      position: relative; /* allow absolute positioning of close button inside */
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      width: 90%;
+      max-width: 400px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #333;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #444;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus {
+      border-color: #7b2ff7;
+      outline: none;
+      box-shadow: 0 0 5px rgba(123, 47, 247, 0.3);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #7b2ff7;
+      color: rgb(0, 0, 0);
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background-color: #6221d2;
+      transform: scale(1.02);
+    }
+
+    .error {
+      color: red;
+      font-size: 0.9em;
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 25px 20px;
+      }
+
+      input, button {
+        font-size: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+
+  <div class="login-container">
+    <button id="closeBtn" title="Close" style="position:absolute; left : 200px; top:12px; background:none; border:none; font-size:22px; cursor:pointer;">✕</button>
+    <h2>Login</h2>
+
+    <div class="form-group">
+      <label for="userId">Enter ID:</label>
+      <input type="text" id="userId" required>
+    </div>
+
+    <div class="form-group">
+      <label for="password">Enter Password:</label>
+      <input type="password" id="password" required>
+    </div>
+
+    <button onclick="login()">Login</button>
+    <div class="error" id="loginError"></div>
+  </div>
+
+  <script>
+    function login() {
+      const userId = document.getElementById('userId').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const studentsData = JSON.parse(localStorage.getItem('studentsData')) || [];
+      const teachersData = JSON.parse(localStorage.getItem('teachersData')) || [];
+
+      let found = false;
+
+      for (const student of studentsData) {
+        if (student.rollNumber === userId && student.password === password) {
+          found = true;
+          // student authenticated
+          localStorage.setItem('currentUserId', student.rollNumber);
+          // check if student profile exists (created via sprofile.html -> user_<rollNo>)
+          if (localStorage.getItem(`user_${student.rollNumber}`)) {
+            // existing profile -> show details
+            window.location.href = 'sdetails.html';
+          } else {
+            // no profile yet -> create profile
+            window.location.href = 'sprofile.html';
+          }
+          break;
+        }
+      }
+
+      if (!found) {
+        for (const teacher of teachersData) {
+          if (teacher.teacherId === userId && teacher.password === password) {
+            found = true;
+            // teacher authenticated
+            localStorage.setItem('currentUserId', teacher.teacherId);
+            // check if teacher profile exists in the 'teachers' profiles array
+            const teachersProfiles = JSON.parse(localStorage.getItem('teachers')) || [];
+            const profileExists = teachersProfiles.find(t => t.id === teacher.teacherId);
+            if (profileExists) {
+              window.location.href = 'tdetails.html';
+            } else {
+              window.location.href = 'tprofile2.html';
+            }
+            break;
+          }
+        }
+      }
+
+      if (!found) {
+        document.getElementById('loginError').textContent =
+          'Invalid ID or Password. Please enter correct details.';
+      }
+    }
+  </script>
+
+  <script>
+    // close button behavior: return to index
+    const closeBtn = document.getElementById('closeBtn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        window.location.href = 'index.html';
+      });
+    }
+  </script>
+
+</body>
+</html>

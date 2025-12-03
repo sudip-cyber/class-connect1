@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Teacher Profile</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #d5fc799c, #b0f3b9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 105vh;
+    }
+
+    .card {
+      background: #fff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 12px 25px rgba(0, 0, 0, 0.2);
+      max-width: 500px;
+      width: 100%;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      color: #555;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    button {
+      display: block;
+      width: 100%;
+      margin-top: 25px;
+      padding: 12px;
+      font-size: 16px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1e7e34;
+    }
+  </style>
+</head>
+<body>
+
+<script src="includes/storage-shim.js"></script>
+
+  <div class="card">
+    <h2>Create Teacher Profile</h2>
+
+    <form id="profileForm">
+
+      <label for="photo">Profile Picture:</label>
+      <input type="file" id="photo" accept="image/*" required />
+  
+      <label for="id">Teacher ID:</label>
+      <input type="text" id="id" required />
+
+      <label for="name">Name:</label>
+      <input type="text" id="name" required />
+
+      <label for="dob">Date of Birth:</label>
+      <input type="date" id="dob" required />
+
+      <label for="institute">Passing Institute:</label>
+      <input type="text" id="institute" required />
+
+      <label for="year">Passing Year:</label>
+      <input type="text" id="year" required />
+
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('profileForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      const id = document.getElementById('id').value.trim();
+      const photo = document.getElementById('photo').files[0];
+      const name = document.getElementById('name').value.trim();
+      const dob = document.getElementById('dob').value.trim();
+      const institute = document.getElementById('institute').value.trim();
+      const year = document.getElementById('year').value.trim();
+
+      const loggedInId = localStorage.getItem('currentUserId');
+      if (!loggedInId || id !== loggedInId) {
+        alert("The entered Teacher ID does not match your logged-in ID.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const newTeacher = {
+          id,
+          photoData: event.target.result,
+          name,
+          dob,
+          institute,
+          year,
+        };
+
+        const teachers = JSON.parse(localStorage.getItem('teachers')) || [];
+        teachers.push(newTeacher);
+        localStorage.setItem('teachers', JSON.stringify(teachers));
+
+        window.location.href = 'tdetails.html';
+      };
+
+      reader.readAsDataURL(photo);
+    });
+
+    window.onload = function () {
+      if (!localStorage.getItem('currentUserId')) {
+        alert("Please log in first!");
+        window.location.href = 'log.html';
+      }
+    };
+  </script>
+
+</body>
+</html>
